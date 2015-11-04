@@ -23,21 +23,29 @@ size_t range_size(Range range) {
 ////////////////////////////////////////////////////////////////////////////////
 
 typedef struct {
-  const char * name;
+  const char * filename;
   const char * data;
   size_t size;
   size_t index;
 } GenHead;
 
-void genhead_init(GenHead * genhead, const char * name, const char * data, size_t size) {
-  genhead->name = name;
+void genhead_init(GenHead * genhead, const char * filename, const char * data, size_t size) {
+  genhead->filename = filename;
   genhead->data = data;
   genhead->size = size;
   genhead->index = 0;
 }
 
 char * genhead_macro_name(GenHead * genhead) {
-  size_t name_len = strlen(genhead->name);
+  char * extension = strrchr(genhead->filename, '.');
+
+  size_t name_len;
+  if (extension != NULL) {
+    name_len = extension - genhead->filename;
+  } else {
+    name_len = strlen(genhead->filename);
+  }
+
   char * macro_name = malloc(name_len + 3);
   if (macro_name == NULL) {
     return NULL;
@@ -45,7 +53,7 @@ char * genhead_macro_name(GenHead * genhead) {
 
   size_t i;
   for (i = 0; i < name_len; ++i) {
-    macro_name[i] = toupper(genhead->name[i]);
+    macro_name[i] = toupper(genhead->filename[i]);
   }
 
   macro_name[i++] = '_';
@@ -206,22 +214,31 @@ void genhead_generate(GenHead * genhead) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int main(void) {
-  int exit_status = 0;
+int main(int argc, char * argv[]) {
+  if (argc <= 1) {
+    fprintf(stderr, "%s\n", "Input file not provided");
+    return 1;
+  }
 
-  FILE * fp = fopen("main.c", "r");
+  const char * filename = argv[1];
+  FILE * fp = fopen(filename, "r");
+  if (fp == NULL) {
+    fprintf(stderr, "%s\n", "Failed to open file");
+    return 1;
+  }
 
   size_t size = fsize(fp);
   char * data = malloc(size);
   size_t num_read = fread(data, sizeof(char), size, fp);
 
-  if (num_read != size) {
-    fprintf(stderr, "%s\n", "Failed to read all the data");
-    exit_status = 1;
-  } else {
+  int exit_status = 0;
+  if (num_read == size) {
     GenHead genhead;
-    genhead_init(&genhead, "main", data, size);
+    genhead_init(&genhead, filename, data, size);
     genhead_generate(&genhead);
+  } else {
+    fprintf(stderr, "%s\n", "Failed to read file");
+    exit_status = 1;
   }
 
   free(data);
