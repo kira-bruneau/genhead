@@ -143,15 +143,19 @@ Range genhead_symbol(GenHead * genhead) {
 
 Range genhead_type(GenHead * genhead) {
   Range range;
-  range.start = genhead->index;
+  range.start = range.end = genhead->index;
 
-  if (range_size(genhead_symbol(genhead)) == 0) {
+  if (range_size(genhead_symbol(genhead)) != 0) {
+    range.end = genhead->index;
+
+    genhead_space(genhead);
     if (genhead_get(genhead) == '*') {
       genhead_next(genhead);
+      range.end = genhead->index;
     }
   }
 
-  range.end = genhead->index;
+  genhead->index = range.end;
   return range;
 }
 
