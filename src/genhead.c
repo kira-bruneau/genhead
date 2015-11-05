@@ -13,7 +13,7 @@ typedef struct {
 } Range;
 
 ptrdiff_t range_diff(Range range) {
-  return range.start - range.end;
+  return range.end - range.start;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
