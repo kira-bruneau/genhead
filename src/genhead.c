@@ -192,9 +192,11 @@ void genhead_generate(FILE * source, FILE * dest, const char * name) {
   genhead.data = data;
   genhead.index = 0;
 
-  char * macro_name = genhead_macro_name(name);
-  fprintf(dest, "#ifndef %s\n#define %s\n\n", macro_name, macro_name);
-  free(macro_name);
+  if (name != NULL) {
+    char * macro_name = genhead_macro_name(name);
+    fprintf(dest, "#ifndef %s\n#define %s\n\n", macro_name, macro_name);
+    free(macro_name);
+  }
 
   while (genhead_get(&genhead)) {
     genhead_space(&genhead);
@@ -211,5 +213,7 @@ void genhead_generate(FILE * source, FILE * dest, const char * name) {
     }
   }
 
-  fprintf(dest, "\n#endif\n");
+  if (name != NULL) {
+    fprintf(dest, "\n#endif\n");
+  }
 }
