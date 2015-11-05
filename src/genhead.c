@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <ctype.h>
 
 #include "genhead.h"
+#include "io.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -18,38 +20,10 @@ ptrdiff_t range_diff(Range range) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void genhead_init(GenHead * genhead, const char * filename, const char * data, size_t size) {
-  genhead->filename = filename;
-  genhead->data = data;
-  genhead->size = size;
-  genhead->index = 0;
-}
-
-static char * genhead_macro_name(GenHead * genhead) {
-  char * extension = strrchr(genhead->filename, '.');
-
-  size_t name_len;
-  if (extension != NULL) {
-    name_len = extension - genhead->filename;
-  } else {
-    name_len = strlen(genhead->filename);
-  }
-
-  char * macro_name = malloc(name_len + 3);
-  if (macro_name == NULL) {
-    return NULL;
-  }
-
-  size_t i;
-  for (i = 0; i < name_len; ++i) {
-    macro_name[i] = toupper(genhead->filename[i]);
-  }
-
-  macro_name[i++] = '_';
-  macro_name[i++] = 'H';
-  macro_name[i++] = '\0';
-  return macro_name;
-}
+typedef struct {
+  const char * data;
+  size_t index;
+} GenHead;
 
 static char genhead_get(GenHead * genhead) {
   return genhead->data[genhead->index];
@@ -182,25 +156,60 @@ static Range genhead_signature(GenHead * genhead) {
   return range;
 }
 
-void genhead_generate(GenHead * genhead) {
-  char * macro_name = genhead_macro_name(genhead);
-  printf("#ifndef %s\n#define %s\n\n", macro_name, macro_name);
+static char * genhead_macro_name(const char * name) {
+  char * extension = strrchr(name, '.');
+
+  size_t name_len;
+  if (extension != NULL) {
+    name_len = extension - name;
+  } else {
+    name_len = strlen(name);
+  }
+
+  char * macro_name = malloc(name_len + 3);
+  if (macro_name == NULL) {
+    return NULL;
+  }
+
+  size_t i;
+  for (i = 0; i < name_len; ++i) {
+    macro_name[i] = toupper(name[i]);
+  }
+
+  macro_name[i++] = '_';
+  macro_name[i++] = 'H';
+  macro_name[i++] = '\0';
+  return macro_name;
+}
+
+void genhead_generate(FILE * source, FILE * dest, const char * name) {
+  char * data = fread_dynamic(source);
+  if (!data) {
+    return;
+  }
+
+  GenHead genhead;
+  genhead.data = data;
+  genhead.index = 0;
+
+  char * macro_name = genhead_macro_name(name);
+  fprintf(dest, "#ifndef %s\n#define %s\n\n", macro_name, macro_name);
   free(macro_name);
 
-  while (genhead_get(genhead)) {
-    genhead_space(genhead);
+  while (genhead_get(&genhead)) {
+    genhead_space(&genhead);
 
     Range test_range, signature;
-    test_range.start = genhead->index;
-    signature = genhead_signature(genhead);
-    test_range.end = genhead->index;
+    test_range.start = genhead.index;
+    signature = genhead_signature(&genhead);
+    test_range.end = genhead.index;
 
     if (range_diff(signature) != 0) {
-      printf("%.*s;\n", (int)range_diff(signature), &genhead->data[signature.start]);
+      fprintf(dest, "%.*s;\n", (int)range_diff(signature), &genhead.data[signature.start]);
     } else if (range_diff(test_range) == 0) {
-      genhead_next(genhead);
+      genhead_next(&genhead);
     }
   }
 
-  printf("\n#endif\n");
+  fprintf(dest, "\n#endif\n");
 }

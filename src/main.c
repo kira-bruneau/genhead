@@ -1,36 +1,112 @@
 #include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include "io.h"
 #include "genhead.h"
 
-int main(int argc, char * argv[]) {
-  if (argc <= 1) {
-    fprintf(stderr, "%s\n", "Input file not provided");
-    return 1;
+#define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(*arr))
+
+static struct {
+  const char * source;
+  const char * dest;
+  const char * name;
+} config;
+
+static void print_usage(int exit_code) {
+  FILE * fp = exit_code == 0 ? stdout : stderr;
+  printf("%i\n", exit_code);
+  fprintf(fp, "Usage: genhead [--help] [--name] [SOURCE] [DEST]\n");
+  exit(exit_code);
+}
+
+static bool parse_args(int argc, char * argv[]) {
+  argv++; argc--;
+
+  config.source = NULL;
+  config.dest = NULL;
+
+  const char ** required_args[] = {
+    &config.source,
+    &config.dest
+  };
+
+  int i;
+  size_t required_i;
+  for (i = 0, required_i = 0; i < argc; ++i) {
+    char * arg = argv[i];
+    if (strncmp(arg, "--", 2) == 0) {
+      arg += 2;
+      if (strncmp(arg, "help", 4) == 0) {
+        print_usage(0);
+      } else if (strncmp(arg, "name", 4) == 0) {
+        arg += 4;
+        if (*arg == '=') {
+          config.name = arg + 1;
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    } else if (required_i < ARRAY_SIZE(required_args)) {
+      *required_args[required_i++] = arg;
+    } else {
+      return false;
+    }
   }
 
-  const char * filename = argv[1];
-  FILE * fp = fopen(filename, "r");
+  if (config.name == NULL) {
+    config.name = config.source;
+  }
+
+  return true;
+}
+
+static FILE * fopen_source() {
+  if (config.source == NULL) {
+    return stdin;
+  }
+
+  FILE * fp = fopen(config.source, "r");
   if (fp == NULL) {
-    fprintf(stderr, "%s\n", "Failed to open file");
-    return 1;
+    return NULL;
   }
 
-  size_t size = fsize(fp);
-  char * data = malloc(size);
-  size_t num_read = fread(data, sizeof(char), size, fp);
+  return fp;
+}
 
-  int exit_status = 0;
-  if (num_read == size) {
-    GenHead genhead;
-    genhead_init(&genhead, filename, data, size);
-    genhead_generate(&genhead);
+static FILE * fopen_dest() {
+  if (config.dest == NULL) {
+    return stdout;
+  }
+
+  FILE * fp = fopen(config.dest, "w");
+  if (fp == NULL) {
+    return NULL;
+  }
+
+  return fp;
+}
+
+int main(int argc, char * argv[]) {
+  if (!parse_args(argc, argv)) {
+    print_usage(1);
+  }
+
+  FILE * source;
+  if ((source = fopen_source()) == NULL) {
+    fprintf(stderr, "%s\n", "Failed to open source file");
   } else {
-    fprintf(stderr, "%s\n", "Failed to read file");
-    exit_status = 1;
+    FILE * dest;
+    if ((dest = fopen_dest()) == NULL) {
+      fprintf(stderr, "%s\n", "Failed to open dest file");
+    } else {
+      genhead_generate(source, dest, config.name);
+    }
+    fclose(dest);
   }
+  fclose(source);
 
-  free(data);
-  fclose(fp);
-  return exit_status;
+  return 0;
 }

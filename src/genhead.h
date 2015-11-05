@@ -1,16 +1,8 @@
 #ifndef GENHEAD_H
 #define GENHEAD_H
 
-#include <stddef.h>
+#include <stdio.h>
 
-typedef struct {
-  const char * filename;
-  const char * data;
-  size_t size;
-  size_t index;
-} GenHead;
-
-void genhead_init(GenHead * genhead, const char * filename, const char * data, size_t size);
-void genhead_generate(GenHead * genhead);
+void genhead_generate(FILE * source, FILE * dest, const char * name);
 
 #endif
